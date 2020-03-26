@@ -47,11 +47,32 @@ bool AHT20::isConnected()
     return true;
 }
 
+/*------------------------ Measurement Helpers ---------------------------*/
+
+uint8_t AHT20::getStatus()
+{
+    uint8_t stat;
+    read(STATUS, (uint8_t*)&stat, sizeof(stat));
+    return stat;
+}
+
+bool AHT20::checkCal(uint8_t stat)
+{
+    //Check that the third status bit is a 1
+    //The third bit is the CAL enable bit
+    uint8_t temp = 1;
+    temp = temp << 3;
+    if (stat && temp)
+        return true;    //AHT20 had been callibrated
+    return false;
+}
+
 /*-------------------------- I2C Abstraction -----------------------------*/
 
-bool AHT20::read(uint8_t *buff, uint8_t buffSize)
+bool AHT20::read(uint8_t key, uint8_t *buff, uint8_t buffSize)
 {
     _i2cPort-> beginTransmission(_deviceAddress);
+    _i2cPort->write(key);
     _i2cPort->endTransmission();
 
     if (_i2cPort->requestFrom(_deviceAddress, buffSize) > 0)

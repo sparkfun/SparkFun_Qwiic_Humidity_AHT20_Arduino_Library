@@ -27,6 +27,9 @@
 #include <Wire.h>
 
 #define DEFAULT_ADDRESS 0x38
+#define INITIALIZATION 0xBE
+#define MEASUREMENT 0xAC
+#define STATUS 0x71
 
 class AHT20:
 {
@@ -38,14 +41,18 @@ class AHT20:
         //Device status
         bool begin(uint8_t address = DEFAULT_ADDRESS, TwoWire &wirePort = Wire);    //Sets the address of the device and opens the I2C bus
         bool isConnected();
-        bool initialise();
+        bool initialize();
+
+        //Measurement helper functions
+        uint8_t getStatus();
+        bool checkCal(uint8_t status);
 
         //Get measurements
-        bool getTemperature();
-        bool getHumidity();
+        float getTemperature();
+        float getHumidity();
 
         //I2C Abstraction
-        bool read(uint8_t *buff, uint8_t buffSize);
+        bool read(uint8_t key, uint8_t *buff, uint8_t buffSize);
         bool write(uint8_t *buff, uint8_t buffSize);
 };
 

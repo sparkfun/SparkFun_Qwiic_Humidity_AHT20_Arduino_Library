@@ -56,7 +56,7 @@ uint8_t AHT20::getStatus()
     return stat;
 }
 
-bool AHT20::checkCal(uint8_t stat)
+bool AHT20::checkCalBit(uint8_t stat)
 {
     //Check that the third status bit is a 1
     //The third bit is the CAL enable bit
@@ -65,6 +65,87 @@ bool AHT20::checkCal(uint8_t stat)
     if (stat && temp)
         return true;    //AHT20 had been callibrated
     return false;
+}
+
+bool AHT20::checkBusyBit(uint8_t stat)
+{
+    //Check that the seventh status bit is a 1
+    //The seventh bit is the busy indication bit
+    uint8_t temp = 1;
+    temp = temp << 7;
+    if (stat && temp)
+        return true;    //AHT20 is busy taking a measurement
+    return false;   //AHT20 is not busy
+}
+
+bool AHT20::initialize()
+{
+    uint16_t init = 0x0800;
+    return write(INITIALIZATION, (uint8_t*)&init, sizeof(init));
+}
+
+bool AHT20::triggerMeasurement()
+{
+    uint16_t trigMeas = 0x3300;
+    return write(MEASUREMENT, (uint8_t*)&trigMeas, sizeof(trigMeas));
+}
+
+long AHT20::readData()
+{
+    //Read and return six bytes of data
+}
+
+bool AHT20::softReset()
+{
+    return writeSingle(RESET);
+}
+
+float AHT20::calculateTemperature(long data)
+{
+
+}
+
+float AHT20::calculateHumidity(long data)
+{
+
+}
+
+/*------------------------- Make Measurements ----------------------------*/
+
+float AHT20::getTemperature()
+{
+    //wait 40 ms
+
+    //Check the calibration bit
+    uint8_t status;
+    status = getStatus();
+    if (checkCalBit(status))
+    {
+        
+        //Continue
+        triggerMeasurement();
+        
+        //wait 75 ms
+        
+        //Get status again and check that AHT20 is NOT busy
+        status = getStatus();
+        if (!checkBusyBit(status))
+        {
+
+            //Continue
+
+            //Send 0x71?! STATUS?
+
+            //Read next six bytes (data)
+        }
+    }
+    //Else, fail
+    return false;
+}
+
+float AHT20::getHumidity()
+{
+
 }
 
 /*-------------------------- I2C Abstraction -----------------------------*/
@@ -86,13 +167,24 @@ bool AHT20::read(uint8_t key, uint8_t *buff, uint8_t buffSize)
     return false;
 }
 
-bool AHT20::write(uint8_t *buff, uint8_t buffSize)
+bool AHT20::write(uint8_t key, uint8_t *buff, uint8_t buffSize)
 {
     _i2cPort->beginTransmission(_deviceAddress);
+    _i2cPort->write(key);
 
     for (uint8_t i = 0; i < buffSize; i++)
         _i2cPort->write(buff[i]);
     
+    if (_i2cPort->endTransmission() == 0)
+        return true;
+    return false;
+}
+
+bool AHT20::writeSingle(uint8_t key)
+{
+    _i2cPort->beginTransmission(_deviceAddress);
+    _i2cPort->write(key);
+
     if (_i2cPort->endTransmission() == 0)
         return true;
     return false;

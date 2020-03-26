@@ -30,6 +30,7 @@
 #define INITIALIZATION 0xBE
 #define MEASUREMENT 0xAC
 #define STATUS 0x71
+#define RESET 0xBA
 
 class AHT20:
 {
@@ -41,19 +42,27 @@ class AHT20:
         //Device status
         bool begin(uint8_t address = DEFAULT_ADDRESS, TwoWire &wirePort = Wire);    //Sets the address of the device and opens the I2C bus
         bool isConnected();
-        bool initialize();
-
+        //DEBUG: check ID??
+    
         //Measurement helper functions
         uint8_t getStatus();
-        bool checkCal(uint8_t status);
+        bool checkCalBit(uint8_t stat);
+        bool checkBusyBit(uint8_t stat);
+        bool initialize();
+        bool triggerMeasurement();
+        long readData();
+        bool softReset();
+        float calculateTemperature(long data);
+        float calculateHumidity(long data);
 
-        //Get measurements
+        //Make measurements
         float getTemperature();
         float getHumidity();
 
         //I2C Abstraction
         bool read(uint8_t key, uint8_t *buff, uint8_t buffSize);
-        bool write(uint8_t *buff, uint8_t buffSize);
+        bool write(uint8_t key, uint8_t *buff, uint8_t buffSize);
+        bool writeSingle(uint8_t key);
 };
 
 #endif

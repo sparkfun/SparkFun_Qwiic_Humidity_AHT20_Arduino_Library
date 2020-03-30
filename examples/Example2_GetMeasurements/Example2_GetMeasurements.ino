@@ -1,8 +1,9 @@
-/****************************************************************************
- * Tests the begin and isConnected function of the Qwiic Humidity library
+/**************************************************************************
+ * Tests the getTemperature and getHumidity functions of the Qwiic Humidity
+ * library
  * 
  * Priyanka Makin @ SparkFun Electronics
- * Original Creation Date: March 26, 2020
+ * Original Creation Date: March 31, 2020
  * 
  * SparkFun labored with love to create this code. Feel like supporting open
  * source hardware? Buy a board from SparkFun! LINK GOES HERE
@@ -11,15 +12,18 @@
  * at the local, and you've found our code helpful, please buy us a round!
  * 
  * Hardware Connections:
- * Attach RedBoard to computer using micro-B USB cable.
- * Attach Qwiic Humidity board to RedBoard using Qwiic cable.
+ * Attach a RedBoard to computer using micro-B USB cable.
+ * Attach a Qwiic Humidity board to RedBoard using Qwiic cable.
  * 
  * Distributed as-is; no warranty is given.
- ****************************************************************************/
+ **************************************************************************/
 #include <Wire.h>
 
 #include <SparkFun_Qwiic_Humidity_AHT20.h>  //Click here to get the library: LINK GOES HERE
 AHT20 humiditySensor;
+
+float temperature;
+float humidity;
 
 void setup()
 {
@@ -38,4 +42,15 @@ void setup()
 
 void loop()
 {
+  temperature = humiditySensor.getTemperature();
+  humidity = humiditySensor.getHumidity();
+
+  Serial.print("Temp: ");
+  Serial.print(temperature);
+  Serial.print("C\t");
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.println("% RH");
+  
+  delay(100);
 }

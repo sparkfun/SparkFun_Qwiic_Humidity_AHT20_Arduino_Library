@@ -46,14 +46,14 @@ class AHT20
     
         //Measurement helper functions
         uint8_t getStatus();
-        bool checkCalBit(uint8_t stat);
-        bool checkBusyBit(uint8_t stat);
+        bool checkCalBit(uint8_t stat); //Returns true if the cal bit is set, false otherwise
+        bool checkBusyBit(uint8_t stat);    //Returns true if the busy bit is set, false otherwise
         bool initialize();
-        bool triggerMeasurement();
-        long readData();
+        bool triggerMeasurement();  
+        long readData();    //REad and return six bytes of data
         bool softReset();
-        float calculateTemperature(long data);
-        float calculateHumidity(long data);
+        float calculateTemperature(long data);  //Convert raw bytes to temperature in celcius
+        float calculateHumidity(long data); //Convert raw bytes to relative humidity percentage
 
         //Make measurements
         float getTemperature();

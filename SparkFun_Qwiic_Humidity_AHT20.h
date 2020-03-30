@@ -32,7 +32,7 @@
 #define STATUS 0x71
 #define RESET 0xBA
 
-class AHT20:
+class AHT20
 {
     private:
         TwoWire *_i2cPort;  //The generic connection to user's chosen I2C hardware

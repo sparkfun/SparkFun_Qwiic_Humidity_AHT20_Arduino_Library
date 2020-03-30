@@ -41,23 +41,23 @@ class AHT20
     public:
         //Device status
         bool begin(uint8_t address = DEFAULT_ADDRESS, TwoWire &wirePort = Wire);    //Sets the address of the device and opens the I2C bus
-        bool isConnected();
+        bool isConnected(); //Checks if the AHT20 is connected to the I2C bus
         //DEBUG: check ID??
     
         //Measurement helper functions
-        uint8_t getStatus();
+        uint8_t getStatus();    //Returns the status byte
         bool checkCalBit(uint8_t stat); //Returns true if the cal bit is set, false otherwise
         bool checkBusyBit(uint8_t stat);    //Returns true if the busy bit is set, false otherwise
-        bool initialize();
-        bool triggerMeasurement();  
-        long readData();    //REad and return six bytes of data
-        bool softReset();
+        bool initialize();  //Initialize for taking measurement
+        bool triggerMeasurement();  //Trigger the AHT20 to take a measurement
+        long readData();    //Read and return six bytes of data
+        bool softReset();   //Restart the sensor system without turning power off and on
         float calculateTemperature(long data);  //Convert raw bytes to temperature in celcius
         float calculateHumidity(long data); //Convert raw bytes to relative humidity percentage
 
         //Make measurements
-        float getTemperature();
-        float getHumidity();
+        float getTemperature(); //Goes through the measurement sequence and returns temperature in degrees celcius
+        float getHumidity();    //Goes through the measurement sequence and returns humidity in % RH
 
         //I2C Abstraction
         bool read(uint8_t key, uint8_t *buff, uint8_t buffSize);

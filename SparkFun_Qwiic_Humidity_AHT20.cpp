@@ -113,6 +113,7 @@ bool AHT20::softReset()
     return writeSingle(RESET);
 }
 
+//TODO
 float AHT20::calculateTemperature(long data)
 {
     //Parse out the state
@@ -120,6 +121,7 @@ float AHT20::calculateTemperature(long data)
     //Convert from raw bytes to degrees celcius
 }
 
+//TODO
 float AHT20::calculateHumidity(long data)
 {
     //Parse out the state
@@ -165,7 +167,7 @@ float AHT20::getTemperature()
             return temp;
         }
     }
-    
+
     //Else, fail
     return 0;
 }

@@ -47,9 +47,9 @@ bool AHT20::begin(uint8_t address, TwoWire &wirePort)
 bool AHT20::isConnected()
 {
     _i2cPort->beginTransmission(_deviceAddress);
-    if (_i2cPort->endTransmission() != 0)
-        return false;
-    return true;
+    if (_i2cPort->endTransmission() == 0)
+        return true;
+    return false;
 }
 
 /*------------------------ Measurement Helpers ---------------------------*/
@@ -57,7 +57,9 @@ bool AHT20::isConnected()
 uint8_t AHT20::getStatus()
 {
     uint8_t stat;
-    read(STATUS, (uint8_t*)&stat, sizeof(stat));
+    _i2cPort->beginTransmission(_deviceAddress);
+    stat = _i2cPort->read();
+    _i2cPort->endTransmission();
     return stat;
 }
 
@@ -87,30 +89,50 @@ bool AHT20::checkBusyBit(uint8_t stat)
 
 bool AHT20::initialize()
 {   
-    //init comes from the datatsheet pg 8
-    uint16_t init = 0x0800;
-    return write(INITIALIZATION, (uint8_t*)&init, sizeof(init));
+    _i2cPort->beginTransmission(_deviceAddress);
+    _i2cPort->write(INITIALIZATION);
+    _i2cPort->write((uint8_t *)INIT_CMD, 2);
+    if (_i2cPort->endTransmission() == 0)
+        return true;
+    return false;
 }
 
 bool AHT20::triggerMeasurement()
 {
-    //trigMeas comes from the datasheet pg 8
-    uint16_t trigMeas = 0x3300;
-    return write(MEASUREMENT, (uint8_t*)&trigMeas, sizeof(trigMeas));
+    _i2cPort->beginTransmission(_deviceAddress);
+    _i2cPort->write(MEASUREMENT);
+    _i2cPort->write((uint8_t *)MEAS_CMD, 2);
+    if (_i2cPort->endTransmission() == 0)
+        return true;
+    return false;
 }
 
+//DEBUG: I need to think about this one
 //Read and return six bytes of data
-long AHT20::readData()
+Data AHT20::readData()
 {
-    long data;
-    //Send status byte - datasheet pg 8
-    read(STATUS, (uint8_t*)&data, sizeof(data));
-    return data;
-}
+    raw_data data;
 
-bool AHT20::softReset()
-{
-    return writeSingle(RESET);
+    if (_i2cPort->requestFrom(_deviceAddress, 6) > 0)
+    {
+        uint8_t state = _i2cPort->read();
+
+        uint32_t incoming = 0;
+        incoming |= (uint32_t)_i2cPort->read() << (8 * 2);
+        incoming |= (uint32_t)_i2cPort->read() << (8 * 1);
+        uint8_t midByte = Wire.read();
+
+        incoming |= midByte << (8 * 0);
+        data.humidity = incoming >> 4;
+
+        data.temperature = midByte << (8 * 2);
+        data.temperature = (uint32_t)_i2cPort->read() << (8 * 1);
+        data.temperature = (uint32_t)_i2cPort->read() << (8 * 0);
+        
+        //Need to get rid of data in bits > 20
+        data.temperature = data.temperature & ~(0xFFF00000);
+    } 
+    return data;
 }
 
 //TODO
@@ -127,6 +149,15 @@ float AHT20::calculateHumidity(long data)
     //Parse out the state
     //Parse out the humidity bytes
     //Convert from raw bytes to % RH
+}
+
+bool AHT20::softReset()
+{
+    _i2cPort->beginTransmission(_deviceAddress);
+    _i2cPort->write(RESET);
+    if (_i2cPort->endTransmission() == 0)
+        return true;
+    return false;
 }
 
 /*------------------------- Make Measurements ----------------------------*/
@@ -159,12 +190,12 @@ float AHT20::getTemperature()
             //Continue with measurement sequence
 
             //Read next six bytes (data)
-            long data = readData();
+            // long data = readData();
 
             //Convert to temperature in celcius
-            float temp = calculateTemperature(data);
+            // float temp = calculateTemperature(data);
             
-            return temp;
+            // return temp;
         }
     }
 
@@ -200,12 +231,12 @@ float AHT20::getHumidity()
             //Continue with measurement sequence
 
             //Read next six bytes (data)
-            long data = readData();
+            // long data = readData();
 
             //Convert to % RH  
-            float humidity = calculateHumidity(data);
+            // float humidity = calculateHumidity(data);
 
-            return humidity;
+            // return humidity;
         }
     }
 
@@ -213,44 +244,44 @@ float AHT20::getHumidity()
     return 0;
 }
 
-/*-------------------------- I2C Abstraction -----------------------------*/
+// /*-------------------------- I2C Abstraction -----------------------------*/
 
-bool AHT20::read(uint8_t key, uint8_t *buff, uint8_t buffSize)
-{
-    _i2cPort-> beginTransmission(_deviceAddress);
-    _i2cPort->write(key);
-    _i2cPort->endTransmission();
+// bool AHT20::read(uint8_t key, uint8_t *buff, uint8_t buffSize)
+// {
+//     _i2cPort-> beginTransmission(_deviceAddress);
+//     _i2cPort->write(key);
+//     _i2cPort->endTransmission();
 
-    if (_i2cPort->requestFrom(_deviceAddress, buffSize) > 0)
-    {
-        for (uint8_t i = 0; i < buffSize; i++)
-        {
-            buff[i] = _i2cPort->read();
-        }
-        return true;
-    }
-    return false;
-}
+//     if (_i2cPort->requestFrom(_deviceAddress, buffSize) > 0)
+//     {
+//         for (uint8_t i = 0; i < buffSize; i++)
+//         {
+//             buff[i] = _i2cPort->read();
+//         }
+//         return true;
+//     }
+//     return false;
+// }
 
-bool AHT20::write(uint8_t key, uint8_t *buff, uint8_t buffSize)
-{
-    _i2cPort->beginTransmission(_deviceAddress);
-    _i2cPort->write(key);
+// bool AHT20::write(uint8_t key, uint8_t *buff, uint8_t buffSize)
+// {
+//     _i2cPort->beginTransmission(_deviceAddress);
+//     _i2cPort->write(key);
 
-    for (uint8_t i = 0; i < buffSize; i++)
-        _i2cPort->write(buff[i]);
+//     for (uint8_t i = 0; i < buffSize; i++)
+//         _i2cPort->write(buff[i]);
     
-    if (_i2cPort->endTransmission() == 0)
-        return true;
-    return false;
-}
+//     if (_i2cPort->endTransmission() == 0)
+//         return true;
+//     return false;
+// }
 
-bool AHT20::writeSingle(uint8_t key)
-{
-    _i2cPort->beginTransmission(_deviceAddress);
-    _i2cPort->write(key);
+// bool AHT20::writeSingle(uint8_t key)
+// {
+//     _i2cPort->beginTransmission(_deviceAddress);
+//     _i2cPort->write(key);
 
-    if (_i2cPort->endTransmission() == 0)
-        return true;
-    return false;
-}
+//     if (_i2cPort->endTransmission() == 0)
+//         return true;
+//     return false;
+// }

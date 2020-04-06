@@ -107,9 +107,8 @@ bool AHT20::triggerMeasurement()
     return false;
 }
 
-//DEBUG: I need to think about this one
 //Read and return six bytes of data
-Data AHT20::readData()
+dataStruct AHT20::readData()
 {
     raw_data data;
 
@@ -135,20 +134,20 @@ Data AHT20::readData()
     return data;
 }
 
-//TODO
-float AHT20::calculateTemperature(long data)
+//Returns temperature in degrees celcius
+float AHT20::calculateTemperature(dataStruct data)
 {
-    //Parse out the state
-    //Parse out the temperature bytes
-    //Convert from raw bytes to degrees celcius
+    float tempCelcius;
+    tempCelcius = (data.temperature / 2 ^ (20)) * 200 - 50;
+    return tempCelcius;
 }
 
-//TODO
-float AHT20::calculateHumidity(long data)
+//Returns humidity in %RH
+float AHT20::calculateHumidity(dataStruct data)
 {
-    //Parse out the state
-    //Parse out the humidity bytes
-    //Convert from raw bytes to % RH
+    float relHumidity;
+    relHumidity = (data.humidity / 2 ^ (20)) * 100;
+    return relHumidity;
 }
 
 bool AHT20::softReset()
@@ -190,12 +189,12 @@ float AHT20::getTemperature()
             //Continue with measurement sequence
 
             //Read next six bytes (data)
-            // long data = readData();
+            raw_data data = readData();
 
             //Convert to temperature in celcius
-            // float temp = calculateTemperature(data);
+            float temp = calculateTemperature(data);
             
-            // return temp;
+            return temp;
         }
     }
 
@@ -231,57 +230,15 @@ float AHT20::getHumidity()
             //Continue with measurement sequence
 
             //Read next six bytes (data)
-            // long data = readData();
+            raw_data data = readData();
 
             //Convert to % RH  
-            // float humidity = calculateHumidity(data);
+            float humidity = calculateHumidity(data);
 
-            // return humidity;
+            return humidity;
         }
     }
 
     //Else, fail
     return 0;
 }
-
-// /*-------------------------- I2C Abstraction -----------------------------*/
-
-// bool AHT20::read(uint8_t key, uint8_t *buff, uint8_t buffSize)
-// {
-//     _i2cPort-> beginTransmission(_deviceAddress);
-//     _i2cPort->write(key);
-//     _i2cPort->endTransmission();
-
-//     if (_i2cPort->requestFrom(_deviceAddress, buffSize) > 0)
-//     {
-//         for (uint8_t i = 0; i < buffSize; i++)
-//         {
-//             buff[i] = _i2cPort->read();
-//         }
-//         return true;
-//     }
-//     return false;
-// }
-
-// bool AHT20::write(uint8_t key, uint8_t *buff, uint8_t buffSize)
-// {
-//     _i2cPort->beginTransmission(_deviceAddress);
-//     _i2cPort->write(key);
-
-//     for (uint8_t i = 0; i < buffSize; i++)
-//         _i2cPort->write(buff[i]);
-    
-//     if (_i2cPort->endTransmission() == 0)
-//         return true;
-//     return false;
-// }
-
-// bool AHT20::writeSingle(uint8_t key)
-// {
-//     _i2cPort->beginTransmission(_deviceAddress);
-//     _i2cPort->write(key);
-
-//     if (_i2cPort->endTransmission() == 0)
-//         return true;
-//     return false;
-// }

@@ -44,7 +44,7 @@ struct raw_data{
     uint32_t humidity, temperature;
 };
 
-typedef struct raw_data Data;
+typedef struct raw_data dataStruct;
 
 class AHT20
 {
@@ -64,18 +64,13 @@ public:
     bool checkBusyBit(uint8_t stat);    //Returns true if the busy bit is set, false otherwise
     bool initialize();  //Initialize for taking measurement
     bool triggerMeasurement();  //Trigger the AHT20 to take a measurement
-    Data readData();    //Read and return six bytes of data
-    float calculateTemperature(long data);  //Convert raw bytes to temperature in celcius
-    float calculateHumidity(long data); //Convert raw bytes to relative humidity percentage
+    dataStruct readData();    //Read and return six bytes of data
+    float calculateTemperature(dataStruct data);  //Convert raw bytes to temperature in celcius
+    float calculateHumidity(dataStruct data); //Convert raw bytes to relative humidity percentage
     bool softReset();   //Restart the sensor system without turning power off and on
 
     //Make measurements
     float getTemperature(); //Goes through the measurement sequence and returns temperature in degrees celcius
     float getHumidity();    //Goes through the measurement sequence and returns humidity in % RH
-
-    // //I2C Abstraction
-    // bool read(uint8_t key, uint8_t *buff, uint8_t buffSize);
-    // bool write(uint8_t key, uint8_t *buff, uint8_t buffSize);
-    // bool writeSingle(uint8_t key);
 };
 #endif

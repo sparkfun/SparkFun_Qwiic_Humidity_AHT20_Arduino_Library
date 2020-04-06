@@ -119,7 +119,7 @@ dataStruct AHT20::readData()
         uint32_t incoming = 0;
         incoming |= (uint32_t)_i2cPort->read() << (8 * 2);
         incoming |= (uint32_t)_i2cPort->read() << (8 * 1);
-        uint8_t midByte = Wire.read();
+        uint8_t midByte = _i2cPort->read();
 
         incoming |= midByte << (8 * 0);
         data.humidity = incoming >> 4;
@@ -241,4 +241,4 @@ float AHT20::getHumidity()
 
     //Else, fail
     return 0;
-}
+}d

@@ -47,10 +47,11 @@ void loop()
 
   Serial.print("Temp: ");
   Serial.print(temperature);
-  Serial.print("C\t");
+  Serial.print(" C\t");
   Serial.print("Humidity: ");
   Serial.print(humidity);
   Serial.println("% RH");
-  
-  delay(100);
+
+  //Wait three seconds
+  delay(3000);
 }

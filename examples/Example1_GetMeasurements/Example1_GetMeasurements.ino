@@ -45,12 +45,14 @@ void loop()
   temperature = humiditySensor.getTemperature();
   humidity = humiditySensor.getHumidity();
 
-  Serial.print("Temp: ");
+  Serial.println();
+  Serial.print("TEMP: ");
   Serial.print(temperature);
   Serial.print(" C\t");
-  Serial.print("Humidity: ");
+  Serial.print("HUMID: ");
   Serial.print(humidity);
   Serial.println("% RH");
+  Serial.println();
 
   //Wait three seconds
   delay(3000);

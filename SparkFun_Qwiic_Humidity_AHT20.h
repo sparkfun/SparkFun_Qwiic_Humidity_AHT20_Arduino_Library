@@ -18,7 +18,7 @@
  * at the local, and you've found our code helpful, please buy us a round!
  * 
  ******************************************************************/
- 
+
 #ifndef __SparkFun_Qwiic_Humidity_AHT20_H__
 #define __SparkFun_Qwiic_Humidity_AHT20_H__
 
@@ -27,19 +27,22 @@
 
 #define DEFAULT_ADDRESS 0x38
 
-enum registers{
+enum registers
+{
     INITIALIZATION = 0xBE,
     MEASUREMENT = 0xAC,
     RESET = 0xBA,
-};  
+};
 
 //These commands come from the AHT20 datasheet, pg 8
-enum commands{
+enum commands
+{
     INIT_CMD = 0x0800,
     MEAS_CMD = 0x3300,
 };
 
-struct raw_data{
+struct raw_data
+{
     uint32_t humidity, temperature;
 };
 
@@ -48,25 +51,25 @@ typedef struct raw_data dataStruct;
 class AHT20
 {
 private:
-    TwoWire *_i2cPort;  //The generic connection to user's chosen I2C hardware
+    TwoWire *_i2cPort; //The generic connection to user's chosen I2C hardware
     uint8_t _deviceAddress;
 
 public:
     //Device status
-    bool begin(uint8_t address = DEFAULT_ADDRESS, TwoWire &wirePort = Wire);    //Sets the address of the device and opens the I2C bus
-    bool isConnected(); //Checks if the AHT20 is connected to the I2C bus
+    bool begin(uint8_t address = DEFAULT_ADDRESS, TwoWire &wirePort = Wire); //Sets the address of the device and opens the I2C bus
+    bool isConnected();                                                      //Checks if the AHT20 is connected to the I2C bus
     //DEBUG: check ID??
-    
+
     //Measurement helper functions
-    uint8_t getStatus();    //Returns the status byte
-    bool checkCalBit(uint8_t stat); //Returns true if the cal bit is set, false otherwise
-    bool checkBusyBit(uint8_t stat);    //Returns true if the busy bit is set, false otherwise
-    bool initialize();  //Initialize for taking measurement
-    bool triggerMeasurement();  //Trigger the AHT20 to take a measurement
-    dataStruct readData();    //Read and return six bytes of data
-    float calculateTemperature(dataStruct data);  //Convert raw bytes to temperature in celcius
-    float calculateHumidity(dataStruct data); //Convert raw bytes to relative humidity percentage
-    bool softReset();   //Restart the sensor system without turning power off and on
+    uint8_t getStatus();                         //Returns the status byte
+    bool isCalculating(uint8_t stat);            //Returns true if the cal bit is set, false otherwise
+    bool isBusy(uint8_t stat);                   //Returns true if the busy bit is set, false otherwise
+    bool initialize();                           //Initialize for taking measurement
+    bool triggerMeasurement();                   //Trigger the AHT20 to take a measurement
+    dataStruct readData();                       //Read and return six bytes of data
+    float calculateTemperature(dataStruct data); //Convert raw bytes to temperature in celcius
+    float calculateHumidity(dataStruct data);    //Convert raw bytes to relative humidity percentage
+    bool softReset();                            //Restart the sensor system without turning power off and on
 
     //Make measurements
     float getTemperature(); //Goes through the measurement sequence and returns temperature in degrees celcius

@@ -69,7 +69,7 @@ uint8_t AHT20::getStatus()
 }
 
 //Returns the state of the cal bit in the status byte
-bool AHT20::checkCalBit(uint8_t stat)
+bool AHT20::isCalculating(uint8_t stat)
 {
     //Check that the third status bit is a 1
     //The third bit is the CAL enable bit
@@ -81,7 +81,7 @@ bool AHT20::checkCalBit(uint8_t stat)
 }
 
 //Returns the state of the busy bit in the status byte
-bool AHT20::checkBusyBit(uint8_t stat)
+bool AHT20::isBusy(uint8_t stat)
 {
     //Check that the seventh status bit is a 1
     //The seventh bit is the busy indication bit

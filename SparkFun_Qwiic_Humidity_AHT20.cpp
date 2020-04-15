@@ -28,13 +28,8 @@
 /*--------------------------- Device Status ------------------------------*/
 bool AHT20::begin(uint8_t address, TwoWire &wirePort)
 {
-    _deviceAddress = address;   //Grab the address that the humidity sensor is on
-    _i2cPort = &wirePort;   //Grab the port the user wants to communicate on
-
-    //DEBUGGING: do we need to do this?!
-    //We need to wait 20 ms at power on for sensor to receive commands
-    //Datasheet pg 7
-    delay(20);
+    _deviceAddress = address; //Grab the address that the humidity sensor is on
+    _i2cPort = &wirePort;     //Grab the port the user wants to communicate on
 
     if (isConnected() == false)
         return false;
@@ -49,6 +44,14 @@ bool AHT20::isConnected()
     _i2cPort->beginTransmission(_deviceAddress);
     if (_i2cPort->endTransmission() == 0)
         return true;
+
+    //If IC failed to respond, give it 20ms more for Power On startup
+    //Datasheet pg 7
+    delay(20);
+
+    if (_i2cPort->endTransmission() == 0)
+        return true;
+
     return false;
 }
 
@@ -73,8 +76,8 @@ bool AHT20::checkCalBit(uint8_t stat)
     uint8_t temp = 1;
     temp = temp << 3;
     if (stat & temp)
-        return true;    //AHT20 has been callibrated
-    return false;   //AHT20 has not been callibrated
+        return true; //AHT20 has been callibrated
+    return false;    //AHT20 has not been callibrated
 }
 
 //Returns the state of the busy bit in the status byte
@@ -85,12 +88,12 @@ bool AHT20::checkBusyBit(uint8_t stat)
     uint8_t temp = 1;
     temp = temp << 7;
     if (stat & temp)
-        return true;    //AHT20 is busy taking a measurement
-    return false;   //AHT20 is not busy
+        return true; //AHT20 is busy taking a measurement
+    return false;    //AHT20 is not busy
 }
 
 bool AHT20::initialize()
-{   
+{
     _i2cPort->beginTransmission(_deviceAddress);
     _i2cPort->write(INITIALIZATION);
     _i2cPort->write((uint8_t *)INIT_CMD, 2);
@@ -130,7 +133,7 @@ dataStruct AHT20::readData()
         incoming |= midByte << (8 * 0);
         // Serial.println(incoming, HEX);
         data.humidity = incoming >> 4;
-        // Serial.println(data.humidity, HEX);  
+        // Serial.println(data.humidity, HEX);
         // Serial.println("Read-in humidity correct, I think?");
 
         data.temperature = (uint32_t)midByte << (8 * 2);
@@ -146,12 +149,12 @@ dataStruct AHT20::readData()
         // Serial.println("Read-in temperature correct, too.");
     }
 
-        // Serial.println("Read-in AHT20 raw data");
-        // Serial.print("Raw temp: 0x");
-        // Serial.println(data.temperature, HEX);
-        // Serial.print("Raw humidity: 0x");
-        // Serial.println(data.humidity, HEX);
-        // Serial.println();
+    // Serial.println("Read-in AHT20 raw data");
+    // Serial.print("Raw temp: 0x");
+    // Serial.println(data.temperature, HEX);
+    // Serial.print("Raw humidity: 0x");
+    // Serial.println(data.humidity, HEX);
+    // Serial.println();
 
     return data;
 }
@@ -241,16 +244,18 @@ float AHT20::getTemperature()
             raw_data newData = readData();
             temperature = calculateTemperature(newData);
         }
-        else 
+        else
         {
             // Serial.println("Can't continue. AHT20 indicating busy taking measurement. Freezing.");
-            while (1);
+            while (1)
+                ;
         }
     }
     else
     {
         // Serial.println("Chip not callibrated! Freezing.");
-        while (1); 
+        while (1)
+            ;
     }
 
     return temperature;
@@ -300,18 +305,20 @@ float AHT20::getHumidity()
             raw_data newData = readData();
             humidity = calculateHumidity(newData);
         }
-        else 
+        else
         {
             Serial.println("Can't continue. AHT20 indicating busy taking measurement. Freezing.");
-            while (1);
+            while (1)
+                ;
         }
     }
     else
     {
         Serial.println("Chip not callibrated! Freezing.");
-        while (1); 
+        while (1)
+            ;
     }
-    
+
     return humidity;
 }
 
@@ -332,7 +339,7 @@ float AHT20::getHumidity()
 
 //         //Signal ready to take measurement
 //         triggerMeasurement();
-        
+
 //         //wait 100 ms for measurement to complete - datasheet pg 8
 //         delay(100);
 
@@ -347,7 +354,7 @@ float AHT20::getHumidity()
 
 //             //Convert to temperature in celcius
 //             float temp = calculateTemperature(data);
-            
+
 //             return temp;
 //         }
 //     }
@@ -388,7 +395,7 @@ float AHT20::getHumidity()
 //             //Read next six bytes (data)
 //             raw_data data = readData();
 
-//             //Convert to % RH  
+//             //Convert to % RH
 //             float humidity = calculateHumidity(data);
 
 //             return humidity;

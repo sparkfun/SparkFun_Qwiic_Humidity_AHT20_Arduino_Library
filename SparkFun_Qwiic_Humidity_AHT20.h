@@ -29,19 +29,12 @@
 
 enum registers
 {
-    INITIALIZATION = 0xBE,
-    MEASUREMENT = 0xAC,
-    RESET = 0xBA,
+    sfe_aht20_reg_reset = 0xBA,
+    sfe_aht20_reg_initialize = 0xBE,
+    sfe_aht20_reg_measure = 0xAC,
 };
 
-//These commands come from the AHT20 datasheet, pg 8
-enum commands
-{
-    INIT_CMD = 0x0800,
-    MEAS_CMD = 0x3300,
-};
-
-struct raw_data
+struct sfe_aht20_raw_data
 {
     uint32_t humidity, temperature;
 };
@@ -54,6 +47,8 @@ private:
     TwoWire *_i2cPort; //The generic connection to user's chosen I2C hardware
     uint8_t _deviceAddress;
 
+    sfe_aht20_raw_data sensorData;
+
 public:
     //Device status
     bool begin(uint8_t address = DEFAULT_ADDRESS, TwoWire &wirePort = Wire); //Sets the address of the device and opens the I2C bus
@@ -62,11 +57,11 @@ public:
 
     //Measurement helper functions
     uint8_t getStatus();                         //Returns the status byte
-    bool isCalibrating();                        //Returns true if the cal bit is set, false otherwise
+    bool isCalibrated();                         //Returns true if the cal bit is set, false otherwise
     bool isBusy();                               //Returns true if the busy bit is set, false otherwise
     bool initialize();                           //Initialize for taking measurement
     bool triggerMeasurement();                   //Trigger the AHT20 to take a measurement
-    dataStruct readData();                       //Read and return six bytes of data
+    void readData();                             //Read and parse the 6 bytes of data into raw humidity and temp
     float calculateTemperature(dataStruct data); //Convert raw bytes to temperature in celcius
     float calculateHumidity(dataStruct data);    //Convert raw bytes to relative humidity percentage
     bool softReset();                            //Restart the sensor system without turning power off and on

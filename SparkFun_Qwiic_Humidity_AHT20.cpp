@@ -63,6 +63,10 @@ bool AHT20::begin(uint8_t address, TwoWire &wirePort)
         return false;
     }
 
+    //Mark all datums as fresh (not read before)
+    sensorQueried.temperature = true;
+    sensorQueried.humidity = true;
+
     return true;
 }
 
@@ -163,38 +167,42 @@ void AHT20::readData()
 
         //Need to get rid of data in bits > 20
         sensorData.temperature = sensorData.temperature & ~(0xFFF00000);
+
+        //Mark data as fresh
+        sensorQueried.temperature = false;
+        sensorQueried.humidity = false;
     }
 }
 
-//Returns temperature in degrees celcius
-float AHT20::calculateTemperature(dataStruct data)
-{
-    float tempCelcius;
-    //From datasheet pg 8
-    tempCelcius = ((float)data.temperature / 1048576) * 200 - 50;
+// //Returns temperature in degrees celcius
+// float AHT20::calculateTemperature(dataStruct data)
+// {
+//     float tempCelsius;
+//     //From datasheet pg 8
+//     tempCelsius = ((float)data.temperature / 1048576) * 200 - 50;
 
-    // //DEBUGGING
-    // float relHumidity;
-    // relHumidity = ((float)data.humidity / 1048576) * 100;
-    // //Print the result
-    // Serial.print("Temperature: ");
-    // Serial.print(tempCelcius);
-    // Serial.print(" C \t Humidity: ");
-    // Serial.print(relHumidity);
-    // Serial.println("% RH");
-    // Serial.println();
+//     // //DEBUGGING
+//     // float relHumidity;
+//     // relHumidity = ((float)data.humidity / 1048576) * 100;
+//     // //Print the result
+//     // Serial.print("Temperature: ");
+//     // Serial.print(tempCelcius);
+//     // Serial.print(" C \t Humidity: ");
+//     // Serial.print(relHumidity);
+//     // Serial.println("% RH");
+//     // Serial.println();
 
-    return tempCelcius;
-}
+//     return tempCelsius;
+// }
 
-//Returns humidity in %RH
-float AHT20::calculateHumidity(dataStruct data)
-{
-    float relHumidity;
-    //From datasheet pg 8
-    relHumidity = ((float)data.humidity / 1048576) * 100;
-    return relHumidity;
-}
+// //Returns humidity in %RH
+// float AHT20::calculateHumidity(dataStruct data)
+// {
+//     float relHumidity;
+//     //From datasheet pg 8
+//     relHumidity = ((float)data.humidity / 1048576) * 100;
+//     return relHumidity;
+// }
 
 bool AHT20::softReset()
 {
@@ -209,94 +217,87 @@ bool AHT20::softReset()
 
 float AHT20::getTemperature()
 {
-    float temperature;
-
-    //Trigger measurement
-    triggerMeasurement();
-    // Serial.println("AHT20 measurement has been triggered.");
-
-    //Wait 100 ms
-    //DEBUG: turn this into an available() function??
-    // Serial.println("Wait 100 ms");
-    delay(100);
-
-    if (isBusy() == false)
+    if (sensorQueried.temperature == true)
     {
-        //Continue
-        // Serial.println("AHT20 not busy. Continue.");
+        //We've got old data. Go get new
+        //Trigger measurement
+        triggerMeasurement();
+        delay(100);
+        if (isBusy() == false)
+        {
+            //Continue
+            // Serial.println("AHT20 not busy. Continue.");
 
-        raw_data newData = readData();
-        while (1)
-            ;
-        temperature = calculateTemperature(newData);
-    }
-    else
-    {
-        // Serial.println("Can't continue. AHT20 indicating busy taking measurement. Freezing.");
-        while (1)
-            ;
+            readData();
+        }
     }
 
-    return temperature;
+    //From datasheet pg 8
+    float tempCelsius = ((float)sensorData.temperature / 1048576) * 200 - 50;
+
+    //Mark data as old
+    sensorQueried.temperature = true;
+
+    return tempCelsius;
 }
 
 float AHT20::getHumidity()
 {
     float humidity;
 
-    //Wait 40 ms - datasheet pg 8
-    delay(40);
+    // //Wait 40 ms - datasheet pg 8
+    // delay(40);
 
-    //Check calibration bit of status byte
-    uint8_t status;
-    status = getStatus();
-    //DEBUGGING
-    // Serial.print("State: 0x");
-    // Serial.println(status, HEX);
-    if (isCalibrated())
-    {
-        //Continue
-        // Serial.println("AHT20 callibrated!");
+    // //Check calibration bit of status byte
+    // uint8_t status;
+    // status = getStatus();
+    // //DEBUGGING
+    // // Serial.print("State: 0x");
+    // // Serial.println(status, HEX);
+    // if (isCalibrated())
+    // {
+    //     //Continue
+    //     // Serial.println("AHT20 callibrated!");
 
-        //Initialize
-        initialize();
-        Serial.println("AHT20 has been initialized.");
+    //     //Initialize
+    //     initialize();
+    //     Serial.println("AHT20 has been initialized.");
 
-        //Trigger measurement
-        triggerMeasurement();
-        Serial.println("AHT20 measurement has been triggered.");
+    //     //Trigger measurement
+    //     triggerMeasurement();
+    //     Serial.println("AHT20 measurement has been triggered.");
 
-        //Wait 100 ms
-        //DEBUG: turn this into an available() function??
-        Serial.println("Wait 100 ms");
-        delay(400);
+    //     //Wait 100 ms
+    //     //DEBUG: turn this into an available() function??
+    //     Serial.println("Wait 100 ms");
+    //     delay(400);
 
-        //Check the busy bit
-        status = getStatus();
-        //DEBUGGING
-        Serial.print("State: 0x");
-        Serial.println(status, HEX);
-        if (isBusy() == false)
-        {
-            //Continue
-            Serial.println("AHT20 not busy. Continue.");
+    //     //Check the busy bit
+    //     status = getStatus();
+    //     //DEBUGGING
+    //     Serial.print("State: 0x");
+    //     Serial.println(status, HEX);
+    //     if (isBusy() == false)
+    //     {
+    //         //Continue
+    //         Serial.println("AHT20 not busy. Continue.");
 
-            raw_data newData = readData();
-            humidity = calculateHumidity(newData);
-        }
-        else
-        {
-            Serial.println("Can't continue. AHT20 indicating busy taking measurement. Freezing.");
-            while (1)
-                ;
-        }
-    }
-    else
-    {
-        Serial.println("Chip not callibrated! Freezing.");
-        while (1)
-            ;
-    }
+    //         raw_data newData = readData();
+    //         humidity = calculateHumidity(newData);
+    //     }
+    //     else
+    //     {
+    //         Serial.println("Can't continue. AHT20 indicating busy taking measurement. Freezing.");
+    //         while (1)
+    //             ;
+    //     }
+    // }
+    // else
+    // {
+    //     Serial.println("Chip not callibrated! Freezing.");
+    //     while (1)
+    //         ;
+    // }
 
     return humidity;
 }

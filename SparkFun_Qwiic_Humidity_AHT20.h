@@ -34,20 +34,23 @@ enum registers
     sfe_aht20_reg_measure = 0xAC,
 };
 
-struct sfe_aht20_raw_data
-{
-    uint32_t humidity, temperature;
-};
-
-typedef struct raw_data dataStruct;
-
 class AHT20
 {
 private:
     TwoWire *_i2cPort; //The generic connection to user's chosen I2C hardware
     uint8_t _deviceAddress;
 
-    sfe_aht20_raw_data sensorData;
+    struct
+    {
+        uint32_t humidity;
+        uint32_t temperature;
+    } sensorData;
+
+    struct
+    {
+        uint8_t temperature : 1;
+        uint8_t humidity : 1;
+    } sensorQueried;
 
 public:
     //Device status
@@ -56,15 +59,15 @@ public:
     //DEBUG: check ID??
 
     //Measurement helper functions
-    uint8_t getStatus();                         //Returns the status byte
-    bool isCalibrated();                         //Returns true if the cal bit is set, false otherwise
-    bool isBusy();                               //Returns true if the busy bit is set, false otherwise
-    bool initialize();                           //Initialize for taking measurement
-    bool triggerMeasurement();                   //Trigger the AHT20 to take a measurement
-    void readData();                             //Read and parse the 6 bytes of data into raw humidity and temp
-    float calculateTemperature(dataStruct data); //Convert raw bytes to temperature in celcius
-    float calculateHumidity(dataStruct data);    //Convert raw bytes to relative humidity percentage
-    bool softReset();                            //Restart the sensor system without turning power off and on
+    uint8_t getStatus();       //Returns the status byte
+    bool isCalibrated();       //Returns true if the cal bit is set, false otherwise
+    bool isBusy();             //Returns true if the busy bit is set, false otherwise
+    bool initialize();         //Initialize for taking measurement
+    bool triggerMeasurement(); //Trigger the AHT20 to take a measurement
+    void readData();           //Read and parse the 6 bytes of data into raw humidity and temp
+    //float calculateTemperature(dataStruct data); //Convert raw bytes to temperature in celcius
+    //float calculateHumidity(dataStruct data);    //Convert raw bytes to relative humidity percentage
+    bool softReset(); //Restart the sensor system without turning power off and on
 
     //Make measurements
     float getTemperature(); //Goes through the measurement sequence and returns temperature in degrees celcius

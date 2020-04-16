@@ -26,18 +26,52 @@
 #include <SparkFun_Qwiic_Humidity_AHT20.h>
 
 /*--------------------------- Device Status ------------------------------*/
-bool AHT20::begin(uint8_t address, TwoWire &wirePort)
+bool AHT20::begin(TwoWire &wirePort)
 {
-    _deviceAddress = address;   //Grab the address that the humidity sensor is on
-    _i2cPort = &wirePort;   //Grab the port the user wants to communicate on
+    _i2cPort = &wirePort; //Grab the port the user wants to communicate on
 
-    //DEBUGGING: do we need to do this?!
-    //We need to wait 20 ms at power on for sensor to receive commands
-    //Datasheet pg 7
-    delay(20);
+    _deviceAddress = AHT20_DEFAULT_ADDRESS; //We had hoped the AHT20 would support two addresses but it doesn't seem to
 
     if (isConnected() == false)
         return false;
+
+    //Wait 40 ms after power-on before reading temp or humidity. Datasheet pg 8
+    delay(40);
+
+    //Check if the calibrated bit is set. If not, init the sensor.
+    if (isCalibrated() == false)
+    {
+        //Send 0xBE0800
+        initialize();
+
+        //Immediately trigger a measurement. Send 0xAC3300
+        triggerMeasurement();
+
+        delay(75); //Wait for measurement to complete
+
+        uint8_t counter = 0;
+        while (isBusy())
+        {
+            delay(1);
+            if (counter++ > 100)
+                return (false); //Give up after 100ms
+        }
+
+        //This calibration sequence is not completely proven. It's not clear how and when the cal bit clears
+        //This seems to work but it's not easily testable
+        if (isCalibrated() == false)
+        {
+            return (false);
+        }
+    }
+
+    //Check that the cal bit has been set
+    if (isCalibrated() == false)
+        return false;
+
+    //Mark all datums as fresh (not read before)
+    sensorQueried.temperature = true;
+    sensorQueried.humidity = true;
 
     return true;
 }
@@ -49,6 +83,15 @@ bool AHT20::isConnected()
     _i2cPort->beginTransmission(_deviceAddress);
     if (_i2cPort->endTransmission() == 0)
         return true;
+
+    //If IC failed to respond, give it 20ms more for Power On Startup
+    //Datasheet pg 7
+    delay(20);
+
+    _i2cPort->beginTransmission(_deviceAddress);
+    if (_i2cPort->endTransmission() == 0)
+        return true;
+
     return false;
 }
 
@@ -56,44 +99,30 @@ bool AHT20::isConnected()
 
 uint8_t AHT20::getStatus()
 {
-    uint8_t stat;
-    _i2cPort->requestFrom(_deviceAddress, 1);
-    while (_i2cPort->available())
-    {
-        stat = _i2cPort->read();
-    }
-    return stat;
+    _i2cPort->requestFrom(_deviceAddress, (uint8_t)1);
+    if (_i2cPort->available())
+        return (_i2cPort->read());
+    return (0);
 }
 
 //Returns the state of the cal bit in the status byte
-bool AHT20::checkCalBit(uint8_t stat)
+bool AHT20::isCalibrated()
 {
-    //Check that the third status bit is a 1
-    //The third bit is the CAL enable bit
-    uint8_t temp = 1;
-    temp = temp << 3;
-    if (stat & temp)
-        return true;    //AHT20 has been callibrated
-    return false;   //AHT20 has not been callibrated
+    return (getStatus() & (1 << 3));
 }
 
 //Returns the state of the busy bit in the status byte
-bool AHT20::checkBusyBit(uint8_t stat)
+bool AHT20::isBusy()
 {
-    //Check that the seventh status bit is a 1
-    //The seventh bit is the busy indication bit
-    uint8_t temp = 1;
-    temp = temp << 7;
-    if (stat & temp)
-        return true;    //AHT20 is busy taking a measurement
-    return false;   //AHT20 is not busy
+    return (getStatus() & (1 << 7));
 }
 
 bool AHT20::initialize()
-{   
+{
     _i2cPort->beginTransmission(_deviceAddress);
-    _i2cPort->write(INITIALIZATION);
-    _i2cPort->write((uint8_t *)INIT_CMD, 2);
+    _i2cPort->write(sfe_aht20_reg_initialize);
+    _i2cPort->write(0x80);
+    _i2cPort->write(0x00);
     if (_i2cPort->endTransmission() == 0)
         return true;
     return false;
@@ -102,94 +131,73 @@ bool AHT20::initialize()
 bool AHT20::triggerMeasurement()
 {
     _i2cPort->beginTransmission(_deviceAddress);
-    _i2cPort->write(MEASUREMENT);
-    _i2cPort->write((uint8_t *)MEAS_CMD, 2);
+    _i2cPort->write(sfe_aht20_reg_measure);
+    _i2cPort->write(0x33);
+    _i2cPort->write(0x00);
     if (_i2cPort->endTransmission() == 0)
         return true;
     return false;
 }
 
-//Read and return six bytes of data
-dataStruct AHT20::readData()
+//Loads the
+void AHT20::readData()
 {
-    raw_data data;
+    //Clear previous data
+    sensorData.temperature = 0;
+    sensorData.humidity = 0;
 
-    if (_i2cPort->requestFrom(_deviceAddress, 6) > 0)
+    if (_i2cPort->requestFrom(_deviceAddress, (uint8_t)6) > 0)
     {
         uint8_t state = _i2cPort->read();
-        // Serial.print("State: 0x");
-        // Serial.println(state, HEX);
 
         uint32_t incoming = 0;
         incoming |= (uint32_t)_i2cPort->read() << (8 * 2);
-        // Serial.println(incoming, HEX);
         incoming |= (uint32_t)_i2cPort->read() << (8 * 1);
-        // Serial.println(incoming, HEX);
         uint8_t midByte = _i2cPort->read();
 
-        incoming |= midByte << (8 * 0);
-        // Serial.println(incoming, HEX);
-        data.humidity = incoming >> 4;
-        // Serial.println(data.humidity, HEX);  
-        // Serial.println("Read-in humidity correct, I think?");
+        incoming |= midByte;
+        sensorData.humidity = incoming >> 4;
 
-        data.temperature = (uint32_t)midByte << (8 * 2);
-        // Serial.println(data.temperature, HEX);
-        data.temperature |= (uint32_t)_i2cPort->read() << (8 * 1);
-        // Serial.println(data.temperature, HEX);
-        data.temperature |= (uint32_t)_i2cPort->read() << (8 * 0);
-        // Serial.println(data.temperature, HEX);
+        sensorData.temperature = (uint32_t)midByte << (8 * 2);
+        sensorData.temperature |= (uint32_t)_i2cPort->read() << (8 * 1);
+        sensorData.temperature |= (uint32_t)_i2cPort->read() << (8 * 0);
 
         //Need to get rid of data in bits > 20
-        data.temperature = data.temperature & ~(0xFFF00000);
-        // Serial.println(data.temperature, HEX);
-        // Serial.println("Read-in temperature correct, too.");
+        sensorData.temperature = sensorData.temperature & ~(0xFFF00000);
+
+        //Mark data as fresh
+        sensorQueried.temperature = false;
+        sensorQueried.humidity = false;
+    }
+}
+
+//Triggers a measurement if one has not been previously started, then returns false
+//If measurement has been started, checks to see if complete.
+//If not complete, returns false
+//If complete, readData(), mark measurement as not started, return true
+bool AHT20::available()
+{
+    if (measurementStarted == false)
+    {
+        triggerMeasurement();
+        measurementStarted = true;
+        return (false);
     }
 
-        // Serial.println("Read-in AHT20 raw data");
-        // Serial.print("Raw temp: 0x");
-        // Serial.println(data.temperature, HEX);
-        // Serial.print("Raw humidity: 0x");
-        // Serial.println(data.humidity, HEX);
-        // Serial.println();
+    if (isBusy() == true)
+    {
+        return (false);
+    }
 
-    return data;
-}
-
-//Returns temperature in degrees celcius
-float AHT20::calculateTemperature(dataStruct data)
-{
-    float tempCelcius;
-    //From datasheet pg 8
-    tempCelcius = ((float)data.temperature / 1048576) * 200 - 50;
-
-    // //DEBUGGING
-    // float relHumidity;
-    // relHumidity = ((float)data.humidity / 1048576) * 100;
-    // //Print the result
-    // Serial.print("Temperature: ");
-    // Serial.print(tempCelcius);
-    // Serial.print(" C \t Humidity: ");
-    // Serial.print(relHumidity);
-    // Serial.println("% RH");
-    // Serial.println();
-
-    return tempCelcius;
-}
-
-//Returns humidity in %RH
-float AHT20::calculateHumidity(dataStruct data)
-{
-    float relHumidity;
-    //From datasheet pg 8
-    relHumidity = ((float)data.humidity / 1048576) * 100;
-    return relHumidity;
+    readData();
+    measurementStarted = false;
+    return (true);
 }
 
 bool AHT20::softReset()
 {
     _i2cPort->beginTransmission(_deviceAddress);
-    _i2cPort->write(RESET);
+    _i2cPort->write(sfe_aht20_reg_reset);
     if (_i2cPort->endTransmission() == 0)
         return true;
     return false;
@@ -199,204 +207,58 @@ bool AHT20::softReset()
 
 float AHT20::getTemperature()
 {
-    float temperature;
-
-    //Wait 40 ms - datasheet pg 8
-    delay(40);
-
-    //Check calibration bit of status byte
-    uint8_t status;
-    status = getStatus();
-    //DEBUGGING
-    // Serial.print("State: 0x");
-    // Serial.println(status, HEX);
-    if (checkCalBit(status))
+    if (sensorQueried.temperature == true)
     {
-        //Continue
-        // Serial.println("AHT20 callibrated!");
-
-        //Initialize
-        initialize();
-        // Serial.println("AHT20 has been initialized.");
-
-        //Trigger measurement
+        //We've got old data so trigger new measurement
         triggerMeasurement();
-        // Serial.println("AHT20 measurement has been triggered.");
 
-        //Wait 100 ms
-        //DEBUG: turn this into an available() function??
-        // Serial.println("Wait 100 ms");
-        delay(400);
+        delay(75); //Wait for measurement to complete
 
-        //Check the busy bit
-        status = getStatus();
-        //DEBUGGING
-        // Serial.print("State: 0x");
-        // Serial.println(status, HEX);
-        if (!checkBusyBit(status))
+        uint8_t counter = 0;
+        while (isBusy())
         {
-            //Continue
-            // Serial.println("AHT20 not busy. Continue.");
+            delay(1);
+            if (counter++ > 100)
+                return (false); //Give up after 100ms
+        }
 
-            raw_data newData = readData();
-            temperature = calculateTemperature(newData);
-        }
-        else 
-        {
-            // Serial.println("Can't continue. AHT20 indicating busy taking measurement. Freezing.");
-            while (1);
-        }
-    }
-    else
-    {
-        // Serial.println("Chip not callibrated! Freezing.");
-        while (1); 
+        readData();
     }
 
-    return temperature;
+    //From datasheet pg 8
+    float tempCelsius = ((float)sensorData.temperature / 1048576) * 200 - 50;
+
+    //Mark data as old
+    sensorQueried.temperature = true;
+
+    return tempCelsius;
 }
 
 float AHT20::getHumidity()
 {
-    float humidity;
-
-    //Wait 40 ms - datasheet pg 8
-    delay(40);
-
-    //Check calibration bit of status byte
-    uint8_t status;
-    status = getStatus();
-    //DEBUGGING
-    // Serial.print("State: 0x");
-    // Serial.println(status, HEX);
-    if (checkCalBit(status))
+    if (sensorQueried.humidity == true)
     {
-        //Continue
-        // Serial.println("AHT20 callibrated!");
-
-        //Initialize
-        initialize();
-        Serial.println("AHT20 has been initialized.");
-
-        //Trigger measurement
+        //We've got old data so trigger new measurement
         triggerMeasurement();
-        Serial.println("AHT20 measurement has been triggered.");
 
-        //Wait 100 ms
-        //DEBUG: turn this into an available() function??
-        Serial.println("Wait 100 ms");
-        delay(400);
+        delay(75); //Wait for measurement to complete
 
-        //Check the busy bit
-        status = getStatus();
-        //DEBUGGING
-        Serial.print("State: 0x");
-        Serial.println(status, HEX);
-        if (!checkBusyBit(status))
+        uint8_t counter = 0;
+        while (isBusy())
         {
-            //Continue
-            Serial.println("AHT20 not busy. Continue.");
+            delay(1);
+            if (counter++ > 100)
+                return (false); //Give up after 100ms
+        }
 
-            raw_data newData = readData();
-            humidity = calculateHumidity(newData);
-        }
-        else 
-        {
-            Serial.println("Can't continue. AHT20 indicating busy taking measurement. Freezing.");
-            while (1);
-        }
+        readData();
     }
-    else
-    {
-        Serial.println("Chip not callibrated! Freezing.");
-        while (1); 
-    }
-    
-    return humidity;
+
+    //From datasheet pg 8
+    float relHumidity = ((float)sensorData.humidity / 1048576) * 100;
+
+    //Mark data as old
+    sensorQueried.humidity = true;
+
+    return relHumidity;
 }
-
-// float AHT20::getTemperature()
-// {
-//     //wait 40 ms - datasheet pg 8
-//     delay(40);
-
-//     //Check the calibration bit of the status byte
-//     uint8_t status;
-//     status = getStatus();
-//     if (checkCalBit(status))
-//     {
-//         //Continue with the measurement sequence
-
-//         //Send initialization bytes
-//         initialize();
-
-//         //Signal ready to take measurement
-//         triggerMeasurement();
-        
-//         //wait 100 ms for measurement to complete - datasheet pg 8
-//         delay(100);
-
-//         //Get status again and check that AHT20 is NOT still busy measuring
-//         status = getStatus();
-//         if (!checkBusyBit(status))
-//         {
-//             //Continue with measurement sequence
-
-//             //Read next six bytes (data)
-//             raw_data data = readData();
-
-//             //Convert to temperature in celcius
-//             float temp = calculateTemperature(data);
-            
-//             return temp;
-//         }
-//     }
-
-//     Serial.println("I've failed!");
-
-//     //Else, fail
-//     return 0;
-// }
-
-// float AHT20::getHumidity()
-// {
-//     //Wait 40 ms - datasheet pg 8
-//     delay(40);
-
-//     //Check the calibration bit of the status byte
-//     uint8_t status;
-//     status = getStatus();
-//     if (checkCalBit(status))
-//     {
-//         //Continue with the measurement sequence
-
-//         //Send the initialization bytes
-//         initialize();
-
-//         //Signal ready to take measurement
-//         triggerMeasurement();
-
-//         //wait 100 ms for measurement to complete - datasheet pg 8
-//         delay(100);
-
-//         //Get status again and check that AHT20 is NOT still busy measuring
-//         status = getStatus();
-//         if (!checkBusyBit(status))
-//         {
-//             //Continue with measurement sequence
-
-//             //Read next six bytes (data)
-//             raw_data data = readData();
-
-//             //Convert to % RH  
-//             float humidity = calculateHumidity(data);
-
-//             return humidity;
-//         }
-//     }
-
-//     Serial.println("I've failed!");
-
-//     //Else, fail
-//     return 0;
-// }

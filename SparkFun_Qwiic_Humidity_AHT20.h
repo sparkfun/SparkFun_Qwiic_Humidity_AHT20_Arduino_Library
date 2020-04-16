@@ -39,6 +39,7 @@ class AHT20
 private:
     TwoWire *_i2cPort; //The generic connection to user's chosen I2C hardware
     uint8_t _deviceAddress;
+    bool measurementStarted = false;
 
     struct
     {
@@ -56,6 +57,8 @@ public:
     //Device status
     bool begin(uint8_t address = DEFAULT_ADDRESS, TwoWire &wirePort = Wire); //Sets the address of the device and opens the I2C bus
     bool isConnected();                                                      //Checks if the AHT20 is connected to the I2C bus
+    bool available();                                                        //Returns true if new data is available
+
     //DEBUG: check ID??
 
     //Measurement helper functions

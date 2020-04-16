@@ -204,6 +204,29 @@ void AHT20::readData()
 //     return relHumidity;
 // }
 
+//Triggers a measurement if one has not been previously started, the returns false
+//If measurement has been started, checks to see if complete.
+//If not complete, returns false
+//If complete, readData(), return true, mark measurement as not started
+bool AHT20::available()
+{
+    if (measurementStarted == false)
+    {
+        triggerMeasurement();
+        measurementStarted = true;
+        return (false);
+    }
+
+    if (isBusy() == true)
+    {
+        return (false);
+    }
+
+    readData();
+    measurementStarted = false;
+    return (true);
+}
+
 bool AHT20::softReset()
 {
     _i2cPort->beginTransmission(_deviceAddress);

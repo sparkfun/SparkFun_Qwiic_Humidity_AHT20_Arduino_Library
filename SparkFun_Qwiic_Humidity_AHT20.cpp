@@ -26,10 +26,11 @@
 #include <SparkFun_Qwiic_Humidity_AHT20.h>
 
 /*--------------------------- Device Status ------------------------------*/
-bool AHT20::begin(uint8_t address, TwoWire &wirePort)
+bool AHT20::begin(TwoWire &wirePort)
 {
-    _deviceAddress = address; //Grab the address that the humidity sensor is on
-    _i2cPort = &wirePort;     //Grab the port the user wants to communicate on
+    _i2cPort = &wirePort; //Grab the port the user wants to communicate on
+
+    _deviceAddress = AHT20_DEFAULT_ADDRESS; //We had hoped the AHT20 would support two addresses but it doesn't seem to
 
     if (isConnected() == false)
         return false;
@@ -46,22 +47,27 @@ bool AHT20::begin(uint8_t address, TwoWire &wirePort)
         //Immediately trigger a measurement. Send 0xAC3300
         triggerMeasurement();
 
-        delay(75); //Wait for measurement to be complete
+        delay(75); //Wait for measurement to complete
+
+        uint8_t counter = 0;
         while (isBusy())
+        {
             delay(1);
+            if (counter++ > 100)
+                return (false); //Give up after 100ms
+        }
+
+        //This calibration sequence is not completely proven. It's not clear how and when the cal bit clears
+        //This seems to work but it's not easily testable
         if (isCalibrated() == false)
         {
-            Serial.println("Calibration failed at startup");
-            while (1)
-                ;
+            return (false);
         }
     }
 
     //Check that the cal bit has been set
     if (isCalibrated() == false)
-    {
         return false;
-    }
 
     //Mark all datums as fresh (not read before)
     sensorQueried.temperature = true;
@@ -82,6 +88,7 @@ bool AHT20::isConnected()
     //Datasheet pg 7
     delay(20);
 
+    _i2cPort->beginTransmission(_deviceAddress);
     if (_i2cPort->endTransmission() == 0)
         return true;
 
@@ -107,15 +114,7 @@ bool AHT20::isCalibrated()
 //Returns the state of the busy bit in the status byte
 bool AHT20::isBusy()
 {
-    uint8_t status = getStatus();
-
-    //Check that the seventh status bit is a 1
-    //The seventh bit is the busy indication bit
-    uint8_t temp = 1;
-    temp = temp << 7;
-    if (status & temp)
-        return true; //AHT20 is busy taking a measurement
-    return false;    //AHT20 is not busy
+    return (getStatus() & (1 << 7));
 }
 
 bool AHT20::initialize()
@@ -131,8 +130,6 @@ bool AHT20::initialize()
 
 bool AHT20::triggerMeasurement()
 {
-    uint8_t command[2] = {0x33, 0x00};
-
     _i2cPort->beginTransmission(_deviceAddress);
     _i2cPort->write(sfe_aht20_reg_measure);
     _i2cPort->write(0x33);
@@ -174,40 +171,10 @@ void AHT20::readData()
     }
 }
 
-// //Returns temperature in degrees celcius
-// float AHT20::calculateTemperature(dataStruct data)
-// {
-//     float tempCelsius;
-//     //From datasheet pg 8
-//     tempCelsius = ((float)data.temperature / 1048576) * 200 - 50;
-
-//     // //DEBUGGING
-//     // float relHumidity;
-//     // relHumidity = ((float)data.humidity / 1048576) * 100;
-//     // //Print the result
-//     // Serial.print("Temperature: ");
-//     // Serial.print(tempCelcius);
-//     // Serial.print(" C \t Humidity: ");
-//     // Serial.print(relHumidity);
-//     // Serial.println("% RH");
-//     // Serial.println();
-
-//     return tempCelsius;
-// }
-
-// //Returns humidity in %RH
-// float AHT20::calculateHumidity(dataStruct data)
-// {
-//     float relHumidity;
-//     //From datasheet pg 8
-//     relHumidity = ((float)data.humidity / 1048576) * 100;
-//     return relHumidity;
-// }
-
-//Triggers a measurement if one has not been previously started, the returns false
+//Triggers a measurement if one has not been previously started, then returns false
 //If measurement has been started, checks to see if complete.
 //If not complete, returns false
-//If complete, readData(), return true, mark measurement as not started
+//If complete, readData(), mark measurement as not started, return true
 bool AHT20::available()
 {
     if (measurementStarted == false)
@@ -242,17 +209,20 @@ float AHT20::getTemperature()
 {
     if (sensorQueried.temperature == true)
     {
-        //We've got old data. Go get new
-        //Trigger measurement
+        //We've got old data so trigger new measurement
         triggerMeasurement();
-        delay(100);
-        if (isBusy() == false)
-        {
-            //Continue
-            // Serial.println("AHT20 not busy. Continue.");
 
-            readData();
+        delay(75); //Wait for measurement to complete
+
+        uint8_t counter = 0;
+        while (isBusy())
+        {
+            delay(1);
+            if (counter++ > 100)
+                return (false); //Give up after 100ms
         }
+
+        readData();
     }
 
     //From datasheet pg 8
@@ -266,147 +236,29 @@ float AHT20::getTemperature()
 
 float AHT20::getHumidity()
 {
-    float humidity;
+    if (sensorQueried.humidity == true)
+    {
+        //We've got old data so trigger new measurement
+        triggerMeasurement();
 
-    // //Wait 40 ms - datasheet pg 8
-    // delay(40);
+        delay(75); //Wait for measurement to complete
 
-    // //Check calibration bit of status byte
-    // uint8_t status;
-    // status = getStatus();
-    // //DEBUGGING
-    // // Serial.print("State: 0x");
-    // // Serial.println(status, HEX);
-    // if (isCalibrated())
-    // {
-    //     //Continue
-    //     // Serial.println("AHT20 callibrated!");
+        uint8_t counter = 0;
+        while (isBusy())
+        {
+            delay(1);
+            if (counter++ > 100)
+                return (false); //Give up after 100ms
+        }
 
-    //     //Initialize
-    //     initialize();
-    //     Serial.println("AHT20 has been initialized.");
+        readData();
+    }
 
-    //     //Trigger measurement
-    //     triggerMeasurement();
-    //     Serial.println("AHT20 measurement has been triggered.");
+    //From datasheet pg 8
+    float relHumidity = ((float)sensorData.humidity / 1048576) * 100;
 
-    //     //Wait 100 ms
-    //     //DEBUG: turn this into an available() function??
-    //     Serial.println("Wait 100 ms");
-    //     delay(400);
+    //Mark data as old
+    sensorQueried.humidity = true;
 
-    //     //Check the busy bit
-    //     status = getStatus();
-    //     //DEBUGGING
-    //     Serial.print("State: 0x");
-    //     Serial.println(status, HEX);
-    //     if (isBusy() == false)
-    //     {
-    //         //Continue
-    //         Serial.println("AHT20 not busy. Continue.");
-
-    //         raw_data newData = readData();
-    //         humidity = calculateHumidity(newData);
-    //     }
-    //     else
-    //     {
-    //         Serial.println("Can't continue. AHT20 indicating busy taking measurement. Freezing.");
-    //         while (1)
-    //             ;
-    //     }
-    // }
-    // else
-    // {
-    //     Serial.println("Chip not callibrated! Freezing.");
-    //     while (1)
-    //         ;
-    // }
-
-    return humidity;
+    return relHumidity;
 }
-
-// float AHT20::getTemperature()
-// {
-//     //wait 40 ms - datasheet pg 8
-//     delay(40);
-
-//     //Check the calibration bit of the status byte
-//     uint8_t status;
-//     status = getStatus();
-//     if (checkCalBit(status))
-//     {
-//         //Continue with the measurement sequence
-
-//         //Send initialization bytes
-//         initialize();
-
-//         //Signal ready to take measurement
-//         triggerMeasurement();
-
-//         //wait 100 ms for measurement to complete - datasheet pg 8
-//         delay(100);
-
-//         //Get status again and check that AHT20 is NOT still busy measuring
-//         status = getStatus();
-//         if (!checkBusyBit(status))
-//         {
-//             //Continue with measurement sequence
-
-//             //Read next six bytes (data)
-//             raw_data data = readData();
-
-//             //Convert to temperature in celcius
-//             float temp = calculateTemperature(data);
-
-//             return temp;
-//         }
-//     }
-
-//     Serial.println("I've failed!");
-
-//     //Else, fail
-//     return 0;
-// }
-
-// float AHT20::getHumidity()
-// {
-//     //Wait 40 ms - datasheet pg 8
-//     delay(40);
-
-//     //Check the calibration bit of the status byte
-//     uint8_t status;
-//     status = getStatus();
-//     if (checkCalBit(status))
-//     {
-//         //Continue with the measurement sequence
-
-//         //Send the initialization bytes
-//         initialize();
-
-//         //Signal ready to take measurement
-//         triggerMeasurement();
-
-//         //wait 100 ms for measurement to complete - datasheet pg 8
-//         delay(100);
-
-//         //Get status again and check that AHT20 is NOT still busy measuring
-//         status = getStatus();
-//         if (!checkBusyBit(status))
-//         {
-//             //Continue with measurement sequence
-
-//             //Read next six bytes (data)
-//             raw_data data = readData();
-
-//             //Convert to % RH
-//             float humidity = calculateHumidity(data);
-
-//             return humidity;
-//         }
-//     }
-
-//     Serial.println("I've failed!");
-
-//     //Else, fail
-//     return 0;
-// }

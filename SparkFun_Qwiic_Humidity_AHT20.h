@@ -25,7 +25,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#define DEFAULT_ADDRESS 0x38
+#define AHT20_DEFAULT_ADDRESS 0x38
 
 enum registers
 {
@@ -55,11 +55,9 @@ private:
 
 public:
     //Device status
-    bool begin(uint8_t address = DEFAULT_ADDRESS, TwoWire &wirePort = Wire); //Sets the address of the device and opens the I2C bus
-    bool isConnected();                                                      //Checks if the AHT20 is connected to the I2C bus
-    bool available();                                                        //Returns true if new data is available
-
-    //DEBUG: check ID??
+    bool begin(TwoWire &wirePort = Wire); //Sets the address of the device and opens the I2C bus
+    bool isConnected();                   //Checks if the AHT20 is connected to the I2C bus
+    bool available();                     //Returns true if new data is available
 
     //Measurement helper functions
     uint8_t getStatus();       //Returns the status byte
@@ -68,9 +66,7 @@ public:
     bool initialize();         //Initialize for taking measurement
     bool triggerMeasurement(); //Trigger the AHT20 to take a measurement
     void readData();           //Read and parse the 6 bytes of data into raw humidity and temp
-    //float calculateTemperature(dataStruct data); //Convert raw bytes to temperature in celcius
-    //float calculateHumidity(dataStruct data);    //Convert raw bytes to relative humidity percentage
-    bool softReset(); //Restart the sensor system without turning power off and on
+    bool softReset();          //Restart the sensor system without turning power off and on
 
     //Make measurements
     float getTemperature(); //Goes through the measurement sequence and returns temperature in degrees celcius

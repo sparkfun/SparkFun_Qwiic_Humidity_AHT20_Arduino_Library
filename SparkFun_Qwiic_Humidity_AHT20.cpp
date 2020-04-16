@@ -34,6 +34,9 @@ bool AHT20::begin(uint8_t address, TwoWire &wirePort)
     if (isConnected() == false)
         return false;
 
+    //Wait 40 ms after power-on before reading temp or humidity. Datasheet pg 8
+    delay(40);
+
     return true;
 }
 
@@ -43,14 +46,18 @@ bool AHT20::isConnected()
 {
     _i2cPort->beginTransmission(_deviceAddress);
     if (_i2cPort->endTransmission() == 0)
+    {
         return true;
+    }
 
-    //If IC failed to respond, give it 20ms more for Power On startup
+    //If IC failed to respond, give it 20ms more for Power On Startup
     //Datasheet pg 7
     delay(20);
 
     if (_i2cPort->endTransmission() == 0)
+    {
         return true;
+    }
 
     return false;
 }
@@ -59,35 +66,28 @@ bool AHT20::isConnected()
 
 uint8_t AHT20::getStatus()
 {
-    uint8_t stat;
-    _i2cPort->requestFrom(_deviceAddress, 1);
-    while (_i2cPort->available())
-    {
-        stat = _i2cPort->read();
-    }
-    return stat;
+    _i2cPort->requestFrom(_deviceAddress, (uint8_t)1);
+    if (_i2cPort->available())
+        return (_i2cPort->read());
+    return (0);
 }
 
 //Returns the state of the cal bit in the status byte
-bool AHT20::isCalculating(uint8_t stat)
+bool AHT20::isCalibrating()
 {
-    //Check that the third status bit is a 1
-    //The third bit is the CAL enable bit
-    uint8_t temp = 1;
-    temp = temp << 3;
-    if (stat & temp)
-        return true; //AHT20 has been callibrated
-    return false;    //AHT20 has not been callibrated
+    return (getStatus() & (1 << 3));
 }
 
 //Returns the state of the busy bit in the status byte
-bool AHT20::isBusy(uint8_t stat)
+bool AHT20::isBusy()
 {
+    uint8_t status = getStatus();
+
     //Check that the seventh status bit is a 1
     //The seventh bit is the busy indication bit
     uint8_t temp = 1;
     temp = temp << 7;
-    if (stat & temp)
+    if (status & temp)
         return true; //AHT20 is busy taking a measurement
     return false;    //AHT20 is not busy
 }
@@ -96,7 +96,8 @@ bool AHT20::initialize()
 {
     _i2cPort->beginTransmission(_deviceAddress);
     _i2cPort->write(INITIALIZATION);
-    _i2cPort->write((uint8_t *)INIT_CMD, 2);
+    _i2cPort->write(0x80);
+    _i2cPort->write(0x00);
     if (_i2cPort->endTransmission() == 0)
         return true;
     return false;
@@ -117,7 +118,7 @@ dataStruct AHT20::readData()
 {
     raw_data data;
 
-    if (_i2cPort->requestFrom(_deviceAddress, 6) > 0)
+    if (_i2cPort->requestFrom(_deviceAddress, (uint8_t)6) > 0)
     {
         uint8_t state = _i2cPort->read();
         // Serial.print("State: 0x");
@@ -204,22 +205,16 @@ float AHT20::getTemperature()
 {
     float temperature;
 
-    //Wait 40 ms - datasheet pg 8
-    delay(40);
-
-    //Check calibration bit of status byte
-    uint8_t status;
-    status = getStatus();
-    //DEBUGGING
-    // Serial.print("State: 0x");
-    // Serial.println(status, HEX);
-    if (checkCalBit(status))
+    if (isCalibrating())
     {
         //Continue
         // Serial.println("AHT20 callibrated!");
 
         //Initialize
         initialize();
+
+        while (1)
+            ;
         // Serial.println("AHT20 has been initialized.");
 
         //Trigger measurement
@@ -231,12 +226,7 @@ float AHT20::getTemperature()
         // Serial.println("Wait 100 ms");
         delay(400);
 
-        //Check the busy bit
-        status = getStatus();
-        //DEBUGGING
-        // Serial.print("State: 0x");
-        // Serial.println(status, HEX);
-        if (!checkBusyBit(status))
+        if (isBusy() == false)
         {
             //Continue
             // Serial.println("AHT20 not busy. Continue.");
@@ -274,7 +264,7 @@ float AHT20::getHumidity()
     //DEBUGGING
     // Serial.print("State: 0x");
     // Serial.println(status, HEX);
-    if (checkCalBit(status))
+    if (isCalibrating())
     {
         //Continue
         // Serial.println("AHT20 callibrated!");
@@ -297,7 +287,7 @@ float AHT20::getHumidity()
         //DEBUGGING
         Serial.print("State: 0x");
         Serial.println(status, HEX);
-        if (!checkBusyBit(status))
+        if (isBusy() == false)
         {
             //Continue
             Serial.println("AHT20 not busy. Continue.");

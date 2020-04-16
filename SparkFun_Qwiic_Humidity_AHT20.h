@@ -62,8 +62,8 @@ public:
 
     //Measurement helper functions
     uint8_t getStatus();                         //Returns the status byte
-    bool isCalculating(uint8_t stat);            //Returns true if the cal bit is set, false otherwise
-    bool isBusy(uint8_t stat);                   //Returns true if the busy bit is set, false otherwise
+    bool isCalibrating();                        //Returns true if the cal bit is set, false otherwise
+    bool isBusy();                               //Returns true if the busy bit is set, false otherwise
     bool initialize();                           //Initialize for taking measurement
     bool triggerMeasurement();                   //Trigger the AHT20 to take a measurement
     dataStruct readData();                       //Read and return six bytes of data

@@ -5,7 +5,7 @@
  * Original Creation Date: March 25, 2020
  * https://github.com/sparkfun/SparkFun_Qwiic_Humidity_AHT20_Arduino_Library
  * 
- * Pick up a board here: LINK GOES HERE
+ * Pick up a board here: https://www.sparkfun.com/products/16618
  * 
  * This file implements all the functions of the AHT20 class.
  * Functions in this library can return the humidity and temperature 

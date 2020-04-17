@@ -5,7 +5,7 @@
  * Original Creation Date: March 25, 2020
  * https://github.com/sparkfun/SparkFun_Qwiic_Humidity_AHT20_Arduino_Library
  * 
- * Pickup a board here: LINK GOES HERE
+ * Pickup a board here: https://wwww.sparkfun.com/products/16618
  * 
  * This file prototypes the AHT20 class implemented in SparkFun_Qwiic_Humidity_AHT20.cpp
  * 

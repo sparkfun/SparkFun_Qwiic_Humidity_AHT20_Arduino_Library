@@ -6,7 +6,7 @@
    Original Creation Date: March 31, 2020
 
    SparkFun labored with love to create this code. Feel like supporting open
-   source hardware? Buy a board from SparkFun! LINK GOES HERE
+   source hardware? Buy a board from SparkFun! https://www.sparkfun.com/products/16618
 
    This code is lemonadeware; if you see me (or any other SparkFun employee)
    at the local, and you've found our code helpful, please buy us a round!
@@ -19,7 +19,7 @@
  **************************************************************************/
 #include <Wire.h>
 
-#include <SparkFun_Qwiic_Humidity_AHT20.h> //Click here to get the library: LINK GOES HERE
+#include <SparkFun_Qwiic_Humidity_AHT20.h> //Click here to get the library: http://librarymanager/All#Qwiic_Humidity_AHT20 by SparkFun
 AHT20 humiditySensor;
 
 void setup()
@@ -33,19 +33,21 @@ void setup()
   if (humiditySensor.begin() == false)
   {
     Serial.println("AHT20 not detected. Please check wiring. Freezing.");
-    while (1)
-      ;
+    while (1);
   }
   Serial.println("AHT20 acknowledged.");
 }
 
 void loop()
 {
+  //If a new measurement is available
   if (humiditySensor.available() == true)
   {
+    //Get the new temperature and humidity value
     float temperature = humiditySensor.getTemperature();
     float humidity = humiditySensor.getHumidity();
 
+    //Print the results
     Serial.print("Temperature: ");
     Serial.print(temperature, 2);
     Serial.print(" C\t");

@@ -121,7 +121,7 @@ bool AHT20::initialize()
 {
     _i2cPort->beginTransmission(_deviceAddress);
     _i2cPort->write(sfe_aht20_reg_initialize);
-    _i2cPort->write((uint8_t)0x80);
+    _i2cPort->write((uint8_t)0x08);
     _i2cPort->write((uint8_t)0x00);
     if (_i2cPort->endTransmission() == 0)
         return true;

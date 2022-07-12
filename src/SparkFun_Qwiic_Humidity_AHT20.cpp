@@ -148,7 +148,7 @@ void AHT20::readData()
 
     if (_i2cPort->requestFrom(_deviceAddress, (uint8_t)6) > 0)
     {
-        uint8_t state = _i2cPort->read();
+        _i2cPort->read(); // Read and discard state
 
         uint32_t incoming = 0;
         incoming |= (uint32_t)_i2cPort->read() << (8 * 2);
